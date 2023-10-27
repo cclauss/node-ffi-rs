@@ -6,7 +6,7 @@ use napi::{JsBoolean, JsNumber, JsObject, JsString, JsUnknown};
 use std::ffi::c_void;
 use std::ffi::{c_char, c_double, c_int, CString};
 pub unsafe fn get_js_function_call_value(
-  env: Env,
+  env: &Env,
   func_arg_type: JsUnknown,
   func_arg_ptr: *mut c_void,
 ) -> JsUnknown {
@@ -244,7 +244,7 @@ pub fn js_unknown_to_data_type(val: JsUnknown) -> DataType {
   }
 }
 
-pub fn rs_array_to_js_array(env: Env, val: ArrayType) -> JsObject {
+pub fn rs_array_to_js_array(env: &Env, val: ArrayType) -> JsObject {
   match val {
     ArrayType::String(arr) => {
       let mut js_array = env.create_array_with_length(arr.len()).unwrap();
@@ -332,8 +332,4 @@ pub fn jsobject_to_rs_struct(
       index_map.insert(field, val);
     });
   index_map
-}
-
-pub fn get_function_constructor(obj: JsObject) {
-  let res: JsObject = obj.get_named_property("paramsType").unwrap();
 }
