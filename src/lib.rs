@@ -1,9 +1,9 @@
 #[macro_use]
 extern crate napi_derive;
-mod define;
 #[macro_use]
 mod ffi_macro;
-// mod foo;
+
+mod define;
 mod pointer;
 mod utils;
 use define::*;
@@ -170,10 +170,31 @@ unsafe fn load(
       }
     })
     .unzip();
-  pub struct MyObject(JsObject);
+  let mut func_type_map = HashMap::new();
+  let mut func_value_map = HashMap::new();
+  (&arg_values)
+    .iter()
+    .enumerate()
+    .for_each(|(index, item)| match item {
+      RsArgsValue::Function(func_desc, js_function) => {
+        let func_desc_obj = func_desc
+          .call_without_args(None)
+          .unwrap()
+          .coerce_to_object()
+          .unwrap();
+        let func_args_type: JsObject = func_desc_obj
+          .get_property(env.create_string("paramsType").unwrap())
+          .unwrap();
+        func_type_map.insert(index, func_args_type);
+        // func_value_map.insert(index, js_function);
+      }
+      _ => {}
+    });
+
   let mut arg_values_c_void: Vec<*mut c_void> = arg_values
     .into_iter()
-    .map(|val| {
+    .enumerate()
+    .map(|(index, val)| {
       match val {
         RsArgsValue::I32(val) => {
           let c_num = Box::new(val);
@@ -221,186 +242,201 @@ unsafe fn load(
           Box::into_raw(c_bool) as *mut c_void
         }
         RsArgsValue::Void(_) => Box::into_raw(Box::new(())) as *mut c_void,
-        RsArgsValue::Function(func_desc, js_function) => {
+        RsArgsValue::Function(_, js_function) => {
           use libffi::high::*;
-          let func_desc_obj = func_desc
-            .call_without_args(None)
-            .unwrap()
-            .coerce_to_object()
-            .unwrap();
-          let func_args_type: JsObject = func_desc_obj
-            .get_property(env.create_string("paramsType").unwrap())
-            .unwrap();
-          let foo = MyObject(func_args_type);
-          let args_len = foo.0.get_array_length().unwrap();
-          let func_args_type_ptr = Box::into_raw(Box::new(foo));
-          Box::into_raw(Box::new(func_desc));
-          Box::into_raw(Box::new(func_desc_obj));
-          impl Drop for MyObject {
-            fn drop(&mut self) {
-              // 在这里执行清理工作
-              println!("Dropping MyType");
-            }
-          }
-          let res = match args_len {
-            3 => {
-              let lambda = |a: *mut c_void, b: *mut c_void, c: *mut c_void| {
-                let arg_arr = [a, b, c];
-                let value: Vec<JsUnknown> = (0..3)
-                  .map(|index| {
-                    let c_param = arg_arr[index as usize];
-                    let arg_type = (&*func_args_type_ptr)
-                      .0
-                      .get_element::<JsUnknown>(index)
-                      .unwrap();
-                    let param = get_js_function_call_value(&env, arg_type, c_param);
-                    param
-                  })
-                  .collect();
-                (&js_function).call(None, &value).unwrap();
-              };
-              let closure = Box::into_raw(Box::new(Closure3::new(&lambda)));
-              return std::mem::transmute((*closure).code_ptr());
-            }
-            4 => {
-              let lambda = |a: *mut c_void, b: *mut c_void, c: *mut c_void, d: *mut c_void| {
-                let arg_arr = [a, b, c, d];
-                let value: Vec<JsUnknown> = (0..4)
-                  .map(|index| {
-                    let c_param = arg_arr[index as usize];
-                    let arg_type = (&*func_args_type_ptr)
-                      .0
-                      .get_element::<JsUnknown>(index)
-                      .unwrap();
-                    let param = get_js_function_call_value(&env, arg_type, c_param);
-                    param
-                  })
-                  .collect();
-                (&js_function).call(None, &value).unwrap();
-              };
-              let closure = Box::into_raw(Box::new(Closure4::new(&lambda)));
-              return std::mem::transmute((*closure).code_ptr());
-            }
-
-            6 => {
-              let lambda = |a: *mut c_void,
-                            b: *mut c_void,
-                            c: *mut c_void,
-                            d: *mut c_void,
-                            e: *mut c_void,
-                            f: *mut c_void| {
-                let arg_arr = [a, b, c, d, e, f];
-                let value: Vec<JsUnknown> = (0..6)
-                  .map(|index| {
-                    let c_param = arg_arr[index as usize];
-                    let arg_type = (&*func_args_type_ptr)
-                      .0
-                      .get_element::<JsUnknown>(index)
-                      .unwrap();
-                    let param = get_js_function_call_value(&env, arg_type, c_param);
-                    param
-                  })
-                  .collect();
-                (&js_function).call(None, &value).unwrap();
-              };
-              let closure = Box::into_raw(Box::new(Closure6::new(&lambda)));
-              return std::mem::transmute((*closure).code_ptr());
-            }
-            7 => {
-              let lambda = |a: *mut c_void,
-                            b: *mut c_void,
-                            c: *mut c_void,
-                            d: *mut c_void,
-                            e: *mut c_void,
-                            f: *mut c_void,
-                            g: *mut c_void| {
-                let arg_arr = [a, b, c, d, e, f, g];
-                let value: Vec<JsUnknown> = (0..7)
-                  .map(|index| {
-                    let c_param = arg_arr[index as usize];
-                    let arg_type = (&*func_args_type_ptr)
-                      .0
-                      .get_element::<JsUnknown>(index)
-                      .unwrap();
-                    let param = get_js_function_call_value(&env, arg_type, c_param);
-                    param
-                  })
-                  .collect();
-                (&js_function).call(None, &value).unwrap();
-              };
-              let closure = Box::into_raw(Box::new(Closure7::new(&lambda)));
-              return std::mem::transmute((*closure).code_ptr());
-            }
-            8 => {
-              let lambda = |a: *mut c_void,
-                            b: *mut c_void,
-                            c: *mut c_void,
-                            d: *mut c_void,
-                            e: *mut c_void,
-                            f: *mut c_void,
-                            g: *mut c_void,
-                            h: *mut c_void| {
-                let arg_arr = [a, b, c, d, e, f, g, h];
-                let value: Vec<JsUnknown> = (0..8)
-                  .map(|index| {
-                    let c_param = arg_arr[index as usize];
-                    let arg_type = (&*func_args_type_ptr)
-                      .0
-                      .get_element::<JsUnknown>(index)
-                      .unwrap();
-                    let param = get_js_function_call_value(&env, arg_type, c_param);
-                    param
-                  })
-                  .collect();
-                (&js_function).call(None, &value).unwrap();
-              };
-              let closure = Box::into_raw(Box::new(Closure8::new(&lambda)));
-              return std::mem::transmute((*closure).code_ptr());
-            }
-            9 => {
-              let lambda = |a: *mut c_void,
-                            b: *mut c_void,
-                            c: *mut c_void,
-                            d: *mut c_void,
-                            e: *mut c_void,
-                            f: *mut c_void,
-                            g: *mut c_void,
-                            h: *mut c_void,
-                            i: *mut c_void| {
-                let arg_arr = [a, b, c, d, e, f, g, h, i];
-                let value: Vec<JsUnknown> = (0..9)
-                  .map(|index| {
-                    let c_param = arg_arr[index as usize];
-                    let arg_type = (&*func_args_type_ptr)
-                      .0
-                      .get_element::<JsUnknown>(index)
-                      .unwrap();
-                    let param = get_js_function_call_value(&env, arg_type, c_param);
-                    param
-                  })
-                  .collect();
-                (&js_function).call(None, &value).unwrap();
-              };
-              let closure = Box::into_raw(Box::new(Closure9::new(&lambda)));
-              return std::mem::transmute((*closure).code_ptr());
-            }
-            _ => std::ptr::null_mut() as *mut c_void,
-          };
-          return res;
-          // let res = match_args_len!(args_len, &func_args_type, &js_function, &env,
-          //     1 => Closure1, a
-          //     ,2 => Closure2, a,b
-          //     ,3 => Closure3, a,b,c
-          //     ,4 => Closure4, a,b,c,d
-          //     ,5 => Closure5, a,b,c,d,e
-          //     ,6 => Closure6, a,b,c,d,e,f
-          //     ,7 => Closure7, a,b,c,d,e,f,g
-          //     ,8 => Closure8, a,b,c,d,e,f,g,h
-          //     ,9 => Closure9, a,b,c,d,e,f,g,h,i
-          //     // 10 => Closure10, a,b,c,d,e,f,g,h,i,j
-          // );
-          // std::mem::forget(func_args_type);
+          let func_args_type = func_type_map.get(&index).unwrap();
+          let args_len = func_args_type.get_array_length().unwrap();
+          func_value_map.insert(index, js_function);
+          let js_function = func_value_map.get(&index).unwrap();
+          // let res = match args_len {
+          //   1 => {
+          //     let lambda = |a: *mut c_void| {
+          //       let arg_arr = [a];
+          //       let value: Vec<JsUnknown> = (0..1)
+          //         .map(|index| {
+          //           let c_param = arg_arr[index as usize];
+          //           let arg_type = (func_args_type).get_element::<JsUnknown>(index).unwrap();
+          //           let param = get_js_function_call_value(&env, arg_type, c_param);
+          //           param
+          //         })
+          //         .collect();
+          //       (&js_function).call(None, &value).unwrap();
+          //     };
+          //     let closure = Box::into_raw(Box::new(Closure1::new(&lambda)));
+          //     return std::mem::transmute((*closure).code_ptr());
+          //   }
+          //   2 => {
+          //     let lambda = |a: *mut c_void, b: *mut c_void| {
+          //       let arg_arr = [a, b];
+          //       let value: Vec<JsUnknown> = (0..2)
+          //         .map(|index| {
+          //           let c_param = arg_arr[index as usize];
+          //           let arg_type = (func_args_type).get_element::<JsUnknown>(index).unwrap();
+          //           let param = get_js_function_call_value(&env, arg_type, c_param);
+          //           param
+          //         })
+          //         .collect();
+          //       (&js_function).call(None, &value).unwrap();
+          //     };
+          //     let closure = Box::into_raw(Box::new(Closure2::new(&lambda)));
+          //     return std::mem::transmute((*closure).code_ptr());
+          //   }
+          //   3 => {
+          //     let lambda = |a: *mut c_void, b: *mut c_void, c: *mut c_void| {
+          //       let arg_arr = [a, b, c];
+          //       let value: Vec<JsUnknown> = (0..3)
+          //         .map(|index| {
+          //           let c_param = arg_arr[index as usize];
+          //           let arg_type = (func_args_type).get_element::<JsUnknown>(index).unwrap();
+          //           let param = get_js_function_call_value(&env, arg_type, c_param);
+          //           param
+          //         })
+          //         .collect();
+          //       (&js_function).call(None, &value).unwrap();
+          //     };
+          //     let closure = Box::into_raw(Box::new(Closure3::new(&lambda)));
+          //     return std::mem::transmute((*closure).code_ptr());
+          //   }
+          //   4 => {
+          //     let lambda = |a: *mut c_void, b: *mut c_void, c: *mut c_void, d: *mut c_void| {
+          //       let arg_arr = [a, b, c, d];
+          //       let value: Vec<JsUnknown> = (0..4)
+          //         .map(|index| {
+          //           let c_param = arg_arr[index as usize];
+          //           let arg_type = (func_args_type).get_element::<JsUnknown>(index).unwrap();
+          //           let param = get_js_function_call_value(&env, arg_type, c_param);
+          //           param
+          //         })
+          //         .collect();
+          //       (&js_function).call(None, &value).unwrap();
+          //     };
+          //     let closure = Box::into_raw(Box::new(Closure4::new(&lambda)));
+          //     return std::mem::transmute((*closure).code_ptr());
+          //   }
+          //   5 => {
+          //     let lambda =
+          //       |a: *mut c_void, b: *mut c_void, c: *mut c_void, d: *mut c_void, e: *mut c_void| {
+          //         let arg_arr = [a, b, c, d, e];
+          //         let value: Vec<JsUnknown> = (0..5)
+          //           .map(|index| {
+          //             let c_param = arg_arr[index as usize];
+          //             let arg_type = (func_args_type).get_element::<JsUnknown>(index).unwrap();
+          //             let param = get_js_function_call_value(&env, arg_type, c_param);
+          //             param
+          //           })
+          //           .collect();
+          //         (&js_function).call(None, &value).unwrap();
+          //       };
+          //     let closure = Box::into_raw(Box::new(Closure5::new(&lambda)));
+          //     return std::mem::transmute((*closure).code_ptr());
+          //   }
+          //   6 => {
+          //     let lambda = |a: *mut c_void,
+          //                   b: *mut c_void,
+          //                   c: *mut c_void,
+          //                   d: *mut c_void,
+          //                   e: *mut c_void,
+          //                   f: *mut c_void| {
+          //       let arg_arr = [a, b, c, d, e, f];
+          //       let value: Vec<JsUnknown> = (0..6)
+          //         .map(|index| {
+          //           let c_param = arg_arr[index as usize];
+          //           let arg_type = (func_args_type).get_element::<JsUnknown>(index).unwrap();
+          //           let param = get_js_function_call_value(&env, arg_type, c_param);
+          //           param
+          //         })
+          //         .collect();
+          //       (&js_function).call(None, &value).unwrap();
+          //     };
+          //     let closure = Box::into_raw(Box::new(Closure6::new(&lambda)));
+          //     return std::mem::transmute((*closure).code_ptr());
+          //   }
+          //   7 => {
+          //     let lambda = |a: *mut c_void,
+          //                   b: *mut c_void,
+          //                   c: *mut c_void,
+          //                   d: *mut c_void,
+          //                   e: *mut c_void,
+          //                   f: *mut c_void,
+          //                   g: *mut c_void| {
+          //       let arg_arr = [a, b, c, d, e, f, g];
+          //       let value: Vec<JsUnknown> = (0..7)
+          //         .map(|index| {
+          //           let c_param = arg_arr[index as usize];
+          //           let arg_type = (func_args_type).get_element::<JsUnknown>(index).unwrap();
+          //           let param = get_js_function_call_value(&env, arg_type, c_param);
+          //           param
+          //         })
+          //         .collect();
+          //       (&js_function).call(None, &value).unwrap();
+          //     };
+          //     let closure = Box::into_raw(Box::new(Closure7::new(&lambda)));
+          //     return std::mem::transmute((*closure).code_ptr());
+          //   }
+          //   8 => {
+          //     let lambda = |a: *mut c_void,
+          //                   b: *mut c_void,
+          //                   c: *mut c_void,
+          //                   d: *mut c_void,
+          //                   e: *mut c_void,
+          //                   f: *mut c_void,
+          //                   g: *mut c_void,
+          //                   h: *mut c_void| {
+          //       let arg_arr = [a, b, c, d, e, f, g, h];
+          //       let value: Vec<JsUnknown> = (0..8)
+          //         .map(|index| {
+          //           let c_param = arg_arr[index as usize];
+          //           let arg_type = (func_args_type).get_element::<JsUnknown>(index).unwrap();
+          //           let param = get_js_function_call_value(&env, arg_type, c_param);
+          //           param
+          //         })
+          //         .collect();
+          //       (&js_function).call(None, &value).unwrap();
+          //     };
+          //     let closure = Box::into_raw(Box::new(Closure8::new(&lambda)));
+          //     return std::mem::transmute((*closure).code_ptr());
+          //   }
+          //   9 => {
+          //     let lambda = |a: *mut c_void,
+          //                   b: *mut c_void,
+          //                   c: *mut c_void,
+          //                   d: *mut c_void,
+          //                   e: *mut c_void,
+          //                   f: *mut c_void,
+          //                   g: *mut c_void,
+          //                   h: *mut c_void,
+          //                   i: *mut c_void| {
+          //       let arg_arr = [a, b, c, d, e, f, g, h, i];
+          //       let value: Vec<JsUnknown> = (0..9)
+          //         .map(|index| {
+          //           let c_param = arg_arr[index as usize];
+          //           let arg_type = (func_args_type).get_element::<JsUnknown>(index).unwrap();
+          //           let param = get_js_function_call_value(&env, arg_type, c_param);
+          //           param
+          //         })
+          //         .collect();
+          //       (&js_function).call(None, &value).unwrap();
+          //     };
+          //     let closure = Box::into_raw(Box::new(Closure9::new(&lambda)));
+          //     return std::mem::transmute((*closure).code_ptr());
+          //   }
+          //   _ => std::ptr::null_mut() as *mut c_void,
+          // };
           // return res;
+
+          let res = match_args_len!(args_len,func_type_map,index, &func_args_type, &js_function, &env,
+              1 => Closure1, a
+              ,2 => Closure2, a,b
+              ,3 => Closure3, a,b,c
+              ,4 => Closure4, a,b,c,d
+              ,5 => Closure5, a,b,c,d,e
+              ,6 => Closure6, a,b,c,d,e,f
+              ,7 => Closure7, a,b,c,d,e,f,g
+              // ,8 => Closure8, a,b,c,d,e,f,g,h
+              // ,9 => Closure9, a,b,c,d,e,f,g,h,i
+              // 10 => Closure10, a,b,c,d,e,f,g,h,i,j
+          );
+          return res;
         }
         RsArgsValue::Object(val) => {
           let (size, _) = calculate_layout(&val);
@@ -495,8 +531,7 @@ unsafe fn load(
             }
           }
           write_data(val, field_ptr);
-          let p = Box::into_raw(Box::new(ptr)) as *mut c_void;
-          return p;
+          return Box::into_raw(Box::new(ptr)) as *mut c_void;
         }
       }
     })
