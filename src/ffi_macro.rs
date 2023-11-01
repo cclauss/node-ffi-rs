@@ -4,7 +4,6 @@ macro_rules! match_args_len {
             $(
                 $num => {
                     let lambda = |$($arg: *mut c_void),*| {
-                        println!("{}",&$index);
                         let func_args_type = $func_type_map.get(&$index).unwrap();
                         let arg_arr = [$($arg),*];
                         let value: Vec<JsUnknown> = (0..$num)
